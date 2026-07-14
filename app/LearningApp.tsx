@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { allLessons, story, teacherBio, units, type Lesson, type Unit } from "./curriculum";
 import {
   createLessonQuestions,
@@ -28,6 +28,7 @@ type Progress = {
   badges: string[];
   lastUnitId?: string;
   lastLessonId?: string;
+  lastView?: Exclude<AppView, "welcome">;
   quizCheckpoint?: QuizCheckpoint;
 };
 
@@ -579,17 +580,53 @@ export default function LearningApp() {
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [teacherOpen, setTeacherOpen] = useState(false);
   const [quizSession, setQuizSession] = useState<QuizSession | null>(null);
+  const [storageReady, setStorageReady] = useState(false);
+  const savedStateRef = useRef<{ profile: StudentProfile | null; progress: Progress } | null>(null);
+  const restoredPageRef = useRef(false);
 
   useEffect(() => {
     try {
       const savedProfile = localStorage.getItem(PROFILE_KEY);
       const savedProgress = localStorage.getItem(PROGRESS_KEY);
+      const nextProfile = savedProfile ? JSON.parse(savedProfile) as StudentProfile : null;
+      const nextProgress = savedProgress ? { ...blankProgress, ...JSON.parse(savedProgress) } as Progress : blankProgress;
+      savedStateRef.current = { profile: nextProfile, progress: nextProgress };
       // Loading the browser-only profile after hydration avoids a server/client mismatch.
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (savedProfile) setProfile(JSON.parse(savedProfile));
-      if (savedProgress) setProgress({ ...blankProgress, ...JSON.parse(savedProgress) });
+      if (nextProfile) setProfile(nextProfile);
+      if (savedProgress) setProgress(nextProgress);
     } catch { /* Keep the safe blank state. */ }
+    setStorageReady(true);
   }, []);
+
+  useEffect(() => {
+    if (!storageReady || !profile || restoredPageRef.current) return;
+    const savedState = savedStateRef.current;
+    if (!savedState?.profile) { restoredPageRef.current = true; return; }
+
+    restoredPageRef.current = true;
+    const savedProgress = savedState.progress;
+    if (savedProgress.quizCheckpoint) {
+      setQuizSession(savedProgress.quizCheckpoint.session);
+      setView("quiz");
+      return;
+    }
+
+    const unit = units.find((item) => item.id === savedProgress.lastUnitId);
+    const lesson = unit?.lessons.find((item) => item.id === savedProgress.lastLessonId);
+    if (savedProgress.lastView === "lesson" && unit && lesson) {
+      setSelectedUnit(unit);
+      setSelectedLesson(lesson);
+      setView("lesson");
+    } else if (savedProgress.lastView === "unit" && unit) {
+      setSelectedUnit(unit);
+      setView("unit");
+    } else if (savedProgress.lastView === "story") {
+      setView("story");
+    } else {
+      setView("dashboard");
+    }
+  }, [profile, storageReady]);
 
   useEffect(() => {
     if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
@@ -605,22 +642,22 @@ export default function LearningApp() {
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
   }, [progress]);
 
-  const begin = (nextProfile: StudentProfile) => { setProfile(nextProfile); setView("dashboard"); };
-  const home = () => { setView(profile ? "dashboard" : "welcome"); setSelectedUnit(null); setSelectedLesson(null); };
-  const openUnit = (unit: Unit) => { setSelectedUnit(unit); setSelectedLesson(null); setView("unit"); setProgress((value) => ({ ...value, lastUnitId: unit.id })); };
-  const openLesson = (lesson: Lesson) => { setSelectedLesson(lesson); setView("lesson"); setProgress((value) => ({ ...value, lastUnitId: selectedUnit?.id, lastLessonId: lesson.id })); };
+  const begin = (nextProfile: StudentProfile) => { setProfile(nextProfile); setProgress((value) => ({ ...value, lastView: "dashboard" })); setView("dashboard"); };
+  const home = () => { setView(profile ? "dashboard" : "welcome"); setSelectedUnit(null); setSelectedLesson(null); if (profile) setProgress((value) => ({ ...value, lastView: "dashboard" })); };
+  const openUnit = (unit: Unit) => { setSelectedUnit(unit); setSelectedLesson(null); setView("unit"); setProgress((value) => ({ ...value, lastView: "unit", lastUnitId: unit.id })); };
+  const openLesson = (lesson: Lesson) => { setSelectedLesson(lesson); setView("lesson"); setProgress((value) => ({ ...value, lastView: "lesson", lastUnitId: selectedUnit?.id, lastLessonId: lesson.id })); };
 
   const startQuiz = (session: QuizSession) => {
     const preparedSession = { ...session, questions: shuffle(session.questions, `${session.id}-${Date.now()}`) };
     setQuizSession(preparedSession);
-    setProgress((current) => ({ ...current, quizCheckpoint: { session: preparedSession, questionIndex: 0, score: 0 } }));
+    setProgress((current) => ({ ...current, lastView: "quiz", quizCheckpoint: { session: preparedSession, questionIndex: 0, score: 0 } }));
     setView("quiz");
   };
   const finishQuiz = (score: number, total: number) => {
     if (!quizSession) return;
     const percentage = Math.round((score / total) * 100);
     setProgress((current) => {
-      const next: Progress = { ...current, quizCheckpoint: undefined, xp: current.xp + score * 10, bestScores: { ...current.bestScores, [quizSession.id]: Math.max(current.bestScores[quizSession.id] ?? 0, percentage) } };
+      const next: Progress = { ...current, lastView: quizSession.returnView, quizCheckpoint: undefined, xp: current.xp + score * 10, bestScores: { ...current.bestScores, [quizSession.id]: Math.max(current.bestScores[quizSession.id] ?? 0, percentage) } };
       const badges = new Set(current.badges);
       if (quizSession.lessonId) {
         next.completedLessons = Array.from(new Set([...current.completedLessons, quizSession.lessonId]));
@@ -637,7 +674,7 @@ export default function LearningApp() {
     });
   };
 
-  const exitQuiz = () => { const returnView = quizSession?.returnView ?? "dashboard"; setQuizSession(null); setView(returnView); };
+  const exitQuiz = () => { const returnView = quizSession?.returnView ?? "dashboard"; setQuizSession(null); setProgress((current) => ({ ...current, lastView: returnView })); setView(returnView); };
 
   const resumeLastLesson = () => {
     const unit = units.find((item) => item.id === progress.lastUnitId);
@@ -645,16 +682,18 @@ export default function LearningApp() {
     if (!unit || !lesson) { setView("dashboard"); return; }
     setSelectedUnit(unit);
     setSelectedLesson(lesson);
+    setProgress((current) => ({ ...current, lastView: "lesson" }));
     setView("lesson");
   };
 
   const resumeLastQuiz = () => {
     if (!progress.quizCheckpoint) { setView("dashboard"); return; }
     setQuizSession(progress.quizCheckpoint.session);
+    setProgress((current) => ({ ...current, lastView: "quiz" }));
     setView("quiz");
   };
 
-  const dashboard = profile && <Dashboard profile={profile} progress={progress} onUnit={openUnit} onStory={() => setView("story")} onTeacher={() => setTeacherOpen(true)} onReview={(part) => {
+  const dashboard = profile && <Dashboard profile={profile} progress={progress} onUnit={openUnit} onStory={() => { setProgress((current) => ({ ...current, lastView: "story" })); setView("story"); }} onTeacher={() => setTeacherOpen(true)} onReview={(part) => {
     const questions = part === 1 ? createTermReview([1, 2, 3], units) : [...createTermReview([4, 5], units), ...createStoryQuiz().slice(0, 10)];
     startQuiz({ id: `review-${part}`, title: `Term Review ${part}`, subtitle: part === 1 ? "Units 1–3" : "Units 4–5 + Story", questions, returnView: "dashboard" });
   }} />;
@@ -663,7 +702,7 @@ export default function LearningApp() {
     {view === "welcome" && <WelcomeScreen key={profile ? "returning-student" : "new-student"} storedProfile={profile} progress={progress} onStart={begin} onTeacher={() => setTeacherOpen(true)} onResumeLesson={resumeLastLesson} onResumeQuiz={resumeLastQuiz} />}
     {view === "dashboard" && dashboard}
     {view === "unit" && profile && selectedUnit && <UnitView unit={selectedUnit} profile={profile} progress={progress} onHome={home} onTeacher={() => setTeacherOpen(true)} onLesson={openLesson} onBank={() => startQuiz({ id: `${selectedUnit.id}-bank`, title: `${selectedUnit.title} Question Bank`, subtitle: `Unit ${selectedUnit.number} • 50 questions`, questions: createUnitBank(selectedUnit), returnView: "unit", unitId: selectedUnit.id })} />}
-    {view === "lesson" && profile && selectedUnit && selectedLesson && <LessonView unit={selectedUnit} lesson={selectedLesson} profile={profile} progress={progress} onBack={() => setView("unit")} onHome={home} onTeacher={() => setTeacherOpen(true)} onQuiz={() => startQuiz({ id: selectedLesson.id, title: `${selectedLesson.title} Challenge`, subtitle: `Unit ${selectedUnit.number} • Lesson ${selectedLesson.number}`, questions: createLessonQuestions(selectedLesson), returnView: "lesson", unitId: selectedUnit.id, lessonId: selectedLesson.id })} />}
+    {view === "lesson" && profile && selectedUnit && selectedLesson && <LessonView unit={selectedUnit} lesson={selectedLesson} profile={profile} progress={progress} onBack={() => { setProgress((current) => ({ ...current, lastView: "unit" })); setView("unit"); }} onHome={home} onTeacher={() => setTeacherOpen(true)} onQuiz={() => startQuiz({ id: selectedLesson.id, title: `${selectedLesson.title} Challenge`, subtitle: `Unit ${selectedUnit.number} • Lesson ${selectedLesson.number}`, questions: createLessonQuestions(selectedLesson), returnView: "lesson", unitId: selectedUnit.id, lessonId: selectedLesson.id })} />}
     {view === "story" && profile && <StoryView profile={profile} progress={progress} onHome={home} onTeacher={() => setTeacherOpen(true)} onQuiz={() => startQuiz({ id: "story-quiz", title: "The Hundred Dresses Story Quiz", subtitle: "15 multiple choice + 15 true or false", questions: createStoryQuiz(), returnView: "story", badge: "Story Master" })} onBank={() => startQuiz({ id: "story-bank", title: "The Hundred Dresses Question Bank", subtitle: "50 story questions", questions: createStoryBank(), returnView: "story", badge: "Story Master" })} />}
     {view === "quiz" && profile && quizSession && <QuizRunner session={quizSession} profile={profile} progress={progress} checkpoint={progress.quizCheckpoint} onCheckpoint={(questionIndex, savedScore) => setProgress((current) => ({ ...current, quizCheckpoint: { session: quizSession, questionIndex, score: savedScore } }))} onFinish={finishQuiz} onExit={exitQuiz} />}
     {teacherOpen && <TeacherModal onClose={() => setTeacherOpen(false)} />}
