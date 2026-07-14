@@ -250,6 +250,14 @@ function Dashboard({ profile, progress, onUnit, onStory, onReview, onTeacher }: 
               <span><strong>{progress.badges.length}</strong> badges earned</span>
             </div>
           </div>
+          <div style={{ position: "relative", flex: "0 1 310px", width: "clamp(220px, 27vw, 340px)", height: "190px", overflow: "hidden", border: "1px solid rgba(255,255,255,.92)", borderRadius: "24px", boxShadow: "0 16px 38px rgba(77,45,92,.16)" }}>
+            <img
+              src="assets/hero.webp?v=dashboard-welcome-cover-20260714"
+              alt="Girls learning English together"
+              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "72% 44%", display: "block" }}
+            />
+            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 48%, rgba(77,43,94,.46))" }} />
+          </div>
           <ProgressRing value={completion} />
         </section>
 
