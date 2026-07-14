@@ -28,6 +28,7 @@ type Progress = {
   badges: string[];
   lastUnitId?: string;
   lastLessonId?: string;
+  quizCheckpoint?: QuizCheckpoint;
 };
 
 type AppView = "welcome" | "dashboard" | "unit" | "lesson" | "story" | "quiz";
@@ -41,6 +42,12 @@ type QuizSession = {
   unitId?: string;
   lessonId?: string;
   badge?: string;
+};
+
+type QuizCheckpoint = {
+  session: QuizSession;
+  questionIndex: number;
+  score: number;
 };
 
 const PROFILE_KEY = "mona-primary4-profile-v1";
@@ -107,9 +114,20 @@ function AppHeader({ profile, progress, onHome, onTeacher }: { profile: StudentP
   );
 }
 
-function WelcomeScreen({ storedProfile, onStart, onTeacher }: { storedProfile: StudentProfile | null; onStart: (profile: StudentProfile) => void; onTeacher: () => void }) {
+function WelcomeScreen({ storedProfile, progress, onStart, onTeacher, onResumeLesson, onResumeQuiz }: {
+  storedProfile: StudentProfile | null;
+  progress: Progress;
+  onStart: (profile: StudentProfile) => void;
+  onTeacher: () => void;
+  onResumeLesson: () => void;
+  onResumeQuiz: () => void;
+}) {
   const [form, setForm] = useState<StudentProfile>(storedProfile ?? blankProfile);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState(!storedProfile);
+  const lastUnit = units.find((unit) => unit.id === progress.lastUnitId);
+  const lastLesson = lastUnit?.lessons.find((lesson) => lesson.id === progress.lastLessonId);
+  const checkpoint = progress.quizCheckpoint;
 
   const start = () => {
     if (!form.name.trim()) {
@@ -120,7 +138,13 @@ function WelcomeScreen({ storedProfile, onStart, onTeacher }: { storedProfile: S
   };
 
   return (
-    <main className="welcome-screen" style={{ backgroundImage: 'url("assets/hero.webp")' }}>
+    <main className="welcome-screen">
+      <img
+        aria-hidden="true"
+        alt=""
+        src="assets/hero.webp?v=welcome-cover-20260714"
+        style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", objectPosition: "center", zIndex: 0 }}
+      />
       <div className="welcome-overlay" />
       <div className="floating-sparkle sparkle-one">✦</div>
       <div className="floating-sparkle sparkle-two">✿</div>
@@ -141,24 +165,56 @@ function WelcomeScreen({ storedProfile, onStart, onTeacher }: { storedProfile: S
       <section className="student-glass-card" aria-labelledby="welcome-form-title">
         <div className="glass-icon">🌷</div>
         <span className="eyebrow">Your learning garden</span>
-        <h2 id="welcome-form-title">Welcome, superstar!</h2>
-        <p>Tell us a little about you, then let the adventure begin.</p>
-        <label>
-          <span>Your name *</span>
-          <input value={form.name} onChange={(event) => { setForm({ ...form, name: event.target.value }); setError(""); }} placeholder="Type your name" autoComplete="name" />
-        </label>
-        <div className="input-grid">
-          <label><span>Class</span><input value={form.className} onChange={(event) => setForm({ ...form, className: event.target.value })} placeholder="4A" /></label>
-          <label><span>School</span><input value={form.school} onChange={(event) => setForm({ ...form, school: event.target.value })} placeholder="Your school" /></label>
-        </div>
-        <fieldset className="avatar-fieldset">
-          <legend>Choose your avatar</legend>
-          <div className="avatar-list">
-            {avatars.map((avatar) => <button type="button" key={avatar} className={form.avatar === avatar ? "avatar active" : "avatar"} onClick={() => setForm({ ...form, avatar })} aria-label={`Choose avatar ${avatar}`}>{avatar}</button>)}
+        <h2 id="welcome-form-title">{storedProfile && !editing ? `Welcome back, ${storedProfile.name}!` : "Welcome, superstar!"}</h2>
+        <p>{storedProfile && !editing ? "Everything is saved. Choose exactly where you want to continue." : "Tell us a little about you, then let the adventure begin."}</p>
+
+        {storedProfile && !editing ? (
+          <div style={{ display: "grid", gap: ".7rem", marginTop: "1rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: ".8rem", padding: ".8rem", border: "1px solid rgba(255,255,255,.74)", borderRadius: "16px", background: "rgba(255,255,255,.22)" }}>
+              <span style={{ fontSize: "2rem" }}>{storedProfile.avatar}</span>
+              <div style={{ display: "grid" }}><strong>{storedProfile.name}</strong><small>{storedProfile.className || "Primary 4 learner"}{storedProfile.school ? ` • ${storedProfile.school}` : ""}</small></div>
+            </div>
+
+            {checkpoint && (
+              <button className="primary-button full-button" onClick={onResumeQuiz}>
+                <span>Continue Last Question</span>
+                <span>{checkpoint.questionIndex + 1}/{checkpoint.session.questions.length} →</span>
+              </button>
+            )}
+
+            {lastLesson && (
+              <button className={checkpoint ? "secondary-button full-button" : "primary-button full-button"} onClick={onResumeLesson}>
+                <span>Continue Last Lesson</span>
+                <span>Lesson {lastLesson.number} →</span>
+              </button>
+            )}
+
+            <button className={!checkpoint && !lastLesson ? "primary-button full-button" : "secondary-button full-button"} onClick={() => onStart(storedProfile)}>
+              <span>Open Learning Garden</span><span>→</span>
+            </button>
+            <button className="text-link" onClick={() => setEditing(true)}>Edit student details</button>
           </div>
-        </fieldset>
-        {error && <p className="form-error" role="alert">{error}</p>}
-        <button className="primary-button full-button" onClick={start}>{storedProfile ? "Continue My Journey" : "Start Learning"} <span>→</span></button>
+        ) : (
+          <>
+            <label>
+              <span>Your name *</span>
+              <input value={form.name} onChange={(event) => { setForm({ ...form, name: event.target.value }); setError(""); }} placeholder="Type your name" autoComplete="name" />
+            </label>
+            <div className="input-grid">
+              <label><span>Class</span><input value={form.className} onChange={(event) => setForm({ ...form, className: event.target.value })} placeholder="4A" /></label>
+              <label><span>School</span><input value={form.school} onChange={(event) => setForm({ ...form, school: event.target.value })} placeholder="Your school" /></label>
+            </div>
+            <fieldset className="avatar-fieldset">
+              <legend>Choose your avatar</legend>
+              <div className="avatar-list">
+                {avatars.map((avatar) => <button type="button" key={avatar} className={form.avatar === avatar ? "avatar active" : "avatar"} onClick={() => setForm({ ...form, avatar })} aria-label={`Choose avatar ${avatar}`}>{avatar}</button>)}
+              </div>
+            </fieldset>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            <button className="primary-button full-button" onClick={start}>{storedProfile ? "Save and Continue" : "Start Learning"} <span>→</span></button>
+            {storedProfile && <button className="text-link" onClick={() => setEditing(false)}>Cancel editing</button>}
+          </>
+        )}
         <small className="privacy-note">🔒 Your progress stays safely on this device.</small>
       </section>
     </main>
@@ -408,21 +464,25 @@ function StoryView({ profile, progress, onHome, onQuiz, onBank, onTeacher }: {
   );
 }
 
-function QuizRunner({ session, profile, progress, onFinish, onExit }: {
+function QuizRunner({ session, profile, progress, checkpoint, onCheckpoint, onFinish, onExit }: {
   session: QuizSession;
   profile: StudentProfile;
   progress: Progress;
+  checkpoint?: QuizCheckpoint;
+  onCheckpoint: (questionIndex: number, score: number) => void;
   onFinish: (score: number, total: number) => void;
   onExit: () => void;
 }) {
-  const [index, setIndex] = useState(0);
+  const savedIndex = checkpoint?.session.id === session.id ? Math.min(Math.max(checkpoint.questionIndex, 0), session.questions.length - 1) : 0;
+  const savedScore = checkpoint?.session.id === session.id ? checkpoint.score : 0;
+  const [index, setIndex] = useState(savedIndex);
   const [selected, setSelected] = useState<string | boolean | null>(null);
   const [matches, setMatches] = useState<Record<string, string>>({});
-  const [availableTokens, setAvailableTokens] = useState<string[]>(session.questions[0]?.tokens ?? []);
+  const [availableTokens, setAvailableTokens] = useState<string[]>(session.questions[savedIndex]?.tokens ?? []);
   const [orderedTokens, setOrderedTokens] = useState<string[]>([]);
   const [checked, setChecked] = useState(false);
   const [correct, setCorrect] = useState(false);
-  const [score, setScore] = useState(0);
+  const [score, setScore] = useState(savedScore);
   const [finished, setFinished] = useState(false);
   const question = session.questions[index];
 
@@ -454,6 +514,7 @@ function QuizRunner({ session, profile, progress, onFinish, onExit }: {
       setChecked(false);
       setCorrect(false);
       setIndex(nextIndex);
+      onCheckpoint(nextIndex, score);
     }
   };
 
@@ -467,6 +528,7 @@ function QuizRunner({ session, profile, progress, onFinish, onExit }: {
     setCorrect(false);
     setScore(0);
     setFinished(false);
+    onCheckpoint(0, 0);
   };
 
   const finalScore = Math.round((score / session.questions.length) * 100);
@@ -548,12 +610,17 @@ export default function LearningApp() {
   const openUnit = (unit: Unit) => { setSelectedUnit(unit); setSelectedLesson(null); setView("unit"); setProgress((value) => ({ ...value, lastUnitId: unit.id })); };
   const openLesson = (lesson: Lesson) => { setSelectedLesson(lesson); setView("lesson"); setProgress((value) => ({ ...value, lastUnitId: selectedUnit?.id, lastLessonId: lesson.id })); };
 
-  const startQuiz = (session: QuizSession) => { setQuizSession({ ...session, questions: shuffle(session.questions, `${session.id}-${Date.now()}`) }); setView("quiz"); };
+  const startQuiz = (session: QuizSession) => {
+    const preparedSession = { ...session, questions: shuffle(session.questions, `${session.id}-${Date.now()}`) };
+    setQuizSession(preparedSession);
+    setProgress((current) => ({ ...current, quizCheckpoint: { session: preparedSession, questionIndex: 0, score: 0 } }));
+    setView("quiz");
+  };
   const finishQuiz = (score: number, total: number) => {
     if (!quizSession) return;
     const percentage = Math.round((score / total) * 100);
     setProgress((current) => {
-      const next: Progress = { ...current, xp: current.xp + score * 10, bestScores: { ...current.bestScores, [quizSession.id]: Math.max(current.bestScores[quizSession.id] ?? 0, percentage) } };
+      const next: Progress = { ...current, quizCheckpoint: undefined, xp: current.xp + score * 10, bestScores: { ...current.bestScores, [quizSession.id]: Math.max(current.bestScores[quizSession.id] ?? 0, percentage) } };
       const badges = new Set(current.badges);
       if (quizSession.lessonId) {
         next.completedLessons = Array.from(new Set([...current.completedLessons, quizSession.lessonId]));
@@ -572,18 +639,33 @@ export default function LearningApp() {
 
   const exitQuiz = () => { const returnView = quizSession?.returnView ?? "dashboard"; setQuizSession(null); setView(returnView); };
 
+  const resumeLastLesson = () => {
+    const unit = units.find((item) => item.id === progress.lastUnitId);
+    const lesson = unit?.lessons.find((item) => item.id === progress.lastLessonId);
+    if (!unit || !lesson) { setView("dashboard"); return; }
+    setSelectedUnit(unit);
+    setSelectedLesson(lesson);
+    setView("lesson");
+  };
+
+  const resumeLastQuiz = () => {
+    if (!progress.quizCheckpoint) { setView("dashboard"); return; }
+    setQuizSession(progress.quizCheckpoint.session);
+    setView("quiz");
+  };
+
   const dashboard = profile && <Dashboard profile={profile} progress={progress} onUnit={openUnit} onStory={() => setView("story")} onTeacher={() => setTeacherOpen(true)} onReview={(part) => {
     const questions = part === 1 ? createTermReview([1, 2, 3], units) : [...createTermReview([4, 5], units), ...createStoryQuiz().slice(0, 10)];
     startQuiz({ id: `review-${part}`, title: `Term Review ${part}`, subtitle: part === 1 ? "Units 1–3" : "Units 4–5 + Story", questions, returnView: "dashboard" });
   }} />;
 
   return <>
-    {view === "welcome" && <WelcomeScreen storedProfile={profile} onStart={begin} onTeacher={() => setTeacherOpen(true)} />}
+    {view === "welcome" && <WelcomeScreen key={profile ? "returning-student" : "new-student"} storedProfile={profile} progress={progress} onStart={begin} onTeacher={() => setTeacherOpen(true)} onResumeLesson={resumeLastLesson} onResumeQuiz={resumeLastQuiz} />}
     {view === "dashboard" && dashboard}
     {view === "unit" && profile && selectedUnit && <UnitView unit={selectedUnit} profile={profile} progress={progress} onHome={home} onTeacher={() => setTeacherOpen(true)} onLesson={openLesson} onBank={() => startQuiz({ id: `${selectedUnit.id}-bank`, title: `${selectedUnit.title} Question Bank`, subtitle: `Unit ${selectedUnit.number} • 50 questions`, questions: createUnitBank(selectedUnit), returnView: "unit", unitId: selectedUnit.id })} />}
     {view === "lesson" && profile && selectedUnit && selectedLesson && <LessonView unit={selectedUnit} lesson={selectedLesson} profile={profile} progress={progress} onBack={() => setView("unit")} onHome={home} onTeacher={() => setTeacherOpen(true)} onQuiz={() => startQuiz({ id: selectedLesson.id, title: `${selectedLesson.title} Challenge`, subtitle: `Unit ${selectedUnit.number} • Lesson ${selectedLesson.number}`, questions: createLessonQuestions(selectedLesson), returnView: "lesson", unitId: selectedUnit.id, lessonId: selectedLesson.id })} />}
     {view === "story" && profile && <StoryView profile={profile} progress={progress} onHome={home} onTeacher={() => setTeacherOpen(true)} onQuiz={() => startQuiz({ id: "story-quiz", title: "The Hundred Dresses Story Quiz", subtitle: "15 multiple choice + 15 true or false", questions: createStoryQuiz(), returnView: "story", badge: "Story Master" })} onBank={() => startQuiz({ id: "story-bank", title: "The Hundred Dresses Question Bank", subtitle: "50 story questions", questions: createStoryBank(), returnView: "story", badge: "Story Master" })} />}
-    {view === "quiz" && profile && quizSession && <QuizRunner session={quizSession} profile={profile} progress={progress} onFinish={finishQuiz} onExit={exitQuiz} />}
+    {view === "quiz" && profile && quizSession && <QuizRunner session={quizSession} profile={profile} progress={progress} checkpoint={progress.quizCheckpoint} onCheckpoint={(questionIndex, savedScore) => setProgress((current) => ({ ...current, quizCheckpoint: { session: quizSession, questionIndex, score: savedScore } }))} onFinish={finishQuiz} onExit={exitQuiz} />}
     {teacherOpen && <TeacherModal onClose={() => setTeacherOpen(false)} />}
   </>;
 }
