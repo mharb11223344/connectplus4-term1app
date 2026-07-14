@@ -1,0 +1,5 @@
+1:"$Sreact.fragment"
+2:I[84080,["/_next/static/chunks/0os4r2b_q-rny.js"],"ViewportBoundary"]
+3:I[84080,["/_next/static/chunks/0os4r2b_q-rny.js"],"MetadataBoundary"]
+4:"$Sreact.suspense"
+0:{"rsc":["$","$1","h",{"children":[null,["$","$L2",null,{"children":[["$","meta","0",{"charSet":"utf-8"}],["$","meta","1",{"name":"viewport","content":"width=device-width, initial-scale=1"}]]}],["$","div",null,{"hidden":true,"children":["$","$L3",null,{"children":["$","$4",null,{"name":"Next.Metadata","children":[["$","title","0",{"children":"Mona’s English Garden | Primary 4"}],["$","meta","1",{"name":"description","content":"An interactive English learning adventure for Primary 4 students by Mrs. Mona Harb."}],["$","meta","2",{"name":"application-name","content":"Mona’s English Garden"}],["$","meta","3",{"name":"author","content":"Mrs. Mona Harb"}],["$","link","4",{"rel":"manifest","href":"/manifest.webmanifest"}],["$","meta","5",{"name":"keywords","content":"Primary 4 English,English learning,Egypt curriculum,Mrs. Mona Harb"}]]}]}]}],null]}],"isPartial":false,"staleTime":300,"varyParams":null,"buildId":"QSQ9or8vkprUo8Jqqh6Uv"}
