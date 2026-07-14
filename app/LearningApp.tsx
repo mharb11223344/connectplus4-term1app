@@ -239,26 +239,18 @@ function Dashboard({ profile, progress, onUnit, onStory, onReview, onTeacher }: 
     <div className="app-shell">
       <AppHeader profile={profile} progress={progress} onHome={() => undefined} onTeacher={onTeacher} />
       <main className="dashboard-main">
-        <section className="dashboard-welcome">
-          <div>
-            <span className="eyebrow">Hello, {profile.name}! {profile.avatar}</span>
-            <h1>Ready to make your English bloom?</h1>
-            <p>Choose a unit, collect stars, and grow a little stronger with every lesson.</p>
+        <section className="dashboard-welcome" style={{ backgroundImage: 'url("assets/hero.webp?v=dashboard-welcome-background-20260714")', backgroundSize: "cover", backgroundPosition: "center" }}>
+          <div style={{ position: "relative", zIndex: 1, color: "white", maxWidth: "760px", padding: "1.2rem", border: "1px solid rgba(255,255,255,.58)", borderRadius: "24px", background: "rgba(54,28,70,.28)", backdropFilter: "blur(2px)", boxShadow: "0 12px 32px rgba(45,21,59,.16)" }}>
+            <span className="eyebrow" style={{ color: "#ffe2ef" }}>Hello, {profile.name}! {profile.avatar}</span>
+            <h1 style={{ color: "white", textShadow: "0 3px 16px rgba(37,17,51,.4)" }}>Ready to make your English bloom?</h1>
+            <p style={{ color: "rgba(255,255,255,.94)", textShadow: "0 2px 10px rgba(37,17,51,.38)" }}>Choose a unit, collect stars, and grow a little stronger with every lesson.</p>
             <div className="welcome-stats">
               <span><strong>{progress.completedLessons.length}</strong> lessons finished</span>
               <span><strong>{earnedStars}</strong> stars collected</span>
               <span><strong>{progress.badges.length}</strong> badges earned</span>
             </div>
           </div>
-          <div style={{ position: "relative", flex: "0 1 310px", width: "clamp(220px, 27vw, 340px)", height: "190px", overflow: "hidden", border: "1px solid rgba(255,255,255,.92)", borderRadius: "24px", boxShadow: "0 16px 38px rgba(77,45,92,.16)" }}>
-            <img
-              src="assets/hero.webp?v=dashboard-welcome-cover-20260714"
-              alt="Girls learning English together"
-              style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "72% 44%", display: "block" }}
-            />
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, transparent 48%, rgba(77,43,94,.46))" }} />
-          </div>
-          <ProgressRing value={completion} />
+          <div style={{ position: "relative", zIndex: 1 }}><ProgressRing value={completion} /></div>
         </section>
 
         <div className="section-heading">
