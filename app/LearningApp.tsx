@@ -608,7 +608,7 @@ export default function LearningApp() {
     const savedProgress = savedState.progress;
     if (savedProgress.quizCheckpoint) {
       setQuizSession(savedProgress.quizCheckpoint.session);
-      setView("quiz");
+      setView("welcome");
       return;
     }
 
