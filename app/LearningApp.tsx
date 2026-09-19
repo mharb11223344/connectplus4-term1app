@@ -639,8 +639,8 @@ export default function LearningApp() {
   }, [profile]);
 
   useEffect(() => {
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
-  }, [progress]);
+    if (!storageReady) return; localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+  }, [progress, storageReady]);
 
   const begin = (nextProfile: StudentProfile) => { setProfile(nextProfile); setProgress((value) => ({ ...value, lastView: "dashboard" })); setView("dashboard"); };
   const home = () => { setView(profile ? "dashboard" : "welcome"); setSelectedUnit(null); setSelectedLesson(null); if (profile) setProgress((value) => ({ ...value, lastView: "dashboard" })); };
