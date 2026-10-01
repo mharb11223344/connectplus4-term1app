@@ -614,7 +614,7 @@ export default function LearningApp() {
     const savedProgress = savedState.progress;
     if (savedProgress.quizCheckpoint) {
       setQuizSession(savedProgress.quizCheckpoint.session);
-      setView("welcome");
+      setView("quiz");
       return;
     }
 
@@ -706,7 +706,7 @@ export default function LearningApp() {
   }} />;
 
   return <>
-    {view === "welcome" && <WelcomeScreen key={profile ? "returning-student" : "new-student"} storedProfile={profile} progress={progress} onStart={begin} onTeacher={() => setTeacherOpen(true)} onResumeLesson={resumeLastLesson} onResumeQuiz={resumeLastQuiz} />}
+    {view === "welcome" && <main><p role="status">Loading your saved learning journey…</p></main>}
     {view === "dashboard" && dashboard}
     {view === "unit" && profile && selectedUnit && <UnitView unit={selectedUnit} profile={profile} progress={progress} onHome={home} onTeacher={() => setTeacherOpen(true)} onLesson={openLesson} onBank={() => startQuiz({ id: `${selectedUnit.id}-bank`, title: `${selectedUnit.title} Question Bank`, subtitle: `Unit ${selectedUnit.number} • 50 questions`, questions: createUnitBank(selectedUnit), returnView: "unit", unitId: selectedUnit.id })} />}
     {view === "lesson" && profile && selectedUnit && selectedLesson && <LessonView unit={selectedUnit} lesson={selectedLesson} profile={profile} progress={progress} onBack={() => { setProgress((current) => ({ ...current, lastView: "unit" })); setView("unit"); }} onHome={home} onTeacher={() => setTeacherOpen(true)} onQuiz={() => startQuiz({ id: selectedLesson.id, title: `${selectedLesson.title} Challenge`, subtitle: `Unit ${selectedUnit.number} • Lesson ${selectedLesson.number}`, questions: createLessonQuestions(selectedLesson), returnView: "lesson", unitId: selectedUnit.id, lessonId: selectedLesson.id })} />}
