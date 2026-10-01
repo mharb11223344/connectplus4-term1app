@@ -232,13 +232,14 @@ function ProgressRing({ value }: { value: number }) {
   return <div className="progress-ring" style={{ "--progress": `${value * 3.6}deg` } as React.CSSProperties}><span>{value}%</span></div>;
 }
 
-function Dashboard({ profile, progress, onUnit, onStory, onReview, onTeacher }: {
+function Dashboard({ profile, progress, onUnit, onStory, onReview, onTeacher, onResumeQuiz }: {
   profile: StudentProfile;
   progress: Progress;
   onUnit: (unit: Unit) => void;
   onStory: () => void;
   onReview: (part: 1 | 2) => void;
   onTeacher: () => void;
+  onResumeQuiz: () => void;
 }) {
   const completion = Math.round((progress.completedLessons.length / allLessons.length) * 100);
   const earnedStars = Object.values(progress.stars).reduce((sum, item) => sum + item, 0);
@@ -251,6 +252,7 @@ function Dashboard({ profile, progress, onUnit, onStory, onReview, onTeacher }: 
             <span className="eyebrow" style={{ color: "#ffe2ef" }}>Hello, {profile.name}! {profile.avatar}</span>
             <h1 style={{ color: "white", textShadow: "0 3px 16px rgba(37,17,51,.4)" }}>Ready to make your English bloom?</h1>
             <p style={{ color: "rgba(255,255,255,.94)", textShadow: "0 2px 10px rgba(37,17,51,.38)" }}>Choose a unit, collect stars, and grow a little stronger with every lesson.</p>
+            {progress.quizCheckpoint && <button className="primary-button" onClick={onResumeQuiz}>Continue Last Question {progress.quizCheckpoint.questionIndex + 1}/{progress.quizCheckpoint.session.questions.length} →</button>}
             <div className="welcome-stats">
               <span><strong>{progress.completedLessons.length}</strong> lessons finished</span>
               <span><strong>{earnedStars}</strong> stars collected</span>
@@ -613,7 +615,10 @@ export default function LearningApp() {
     restoredPageRef.current = true;
     const savedProgress = savedState.progress;
     if (savedProgress.quizCheckpoint) {
-      setQuizSession(savedProgress.quizCheckpoint.session);
+      const session = savedProgress.quizCheckpoint.session;
+      const unit = units.find((item) => item.id === session.unitId);
+      if (session.unitId && (!unit || !portalUnitOpen(unit.number))) { setView("dashboard"); return; }
+      setQuizSession(session);
       setView("quiz");
       return;
     }
@@ -681,7 +686,17 @@ export default function LearningApp() {
     });
   };
 
-  const exitQuiz = () => { const returnView = quizSession?.returnView ?? "dashboard"; setQuizSession(null); setProgress((current) => ({ ...current, lastView: returnView })); setView(returnView); };
+  const exitQuiz = () => {
+    const unit = units.find((item) => item.id === quizSession?.unitId);
+    const lesson = unit?.lessons.find((item) => item.id === quizSession?.lessonId);
+    const requested = quizSession?.returnView ?? "dashboard";
+    const returnView = requested === "lesson" && (!unit || !lesson) || requested === "unit" && !unit ? "dashboard" : requested;
+    setSelectedUnit(unit ?? null);
+    setSelectedLesson(lesson ?? null);
+    setQuizSession(null);
+    setProgress((current) => ({ ...current, lastView: returnView }));
+    setView(returnView);
+  };
 
   const resumeLastLesson = () => {
     const unit = units.find((item) => item.id === progress.lastUnitId);
@@ -700,7 +715,7 @@ export default function LearningApp() {
     setView("quiz");
   };
 
-  const dashboard = profile && <Dashboard profile={profile} progress={progress} onUnit={openUnit} onStory={() => { setProgress((current) => ({ ...current, lastView: "story" })); setView("story"); }} onTeacher={() => setTeacherOpen(true)} onReview={(part) => {
+  const dashboard = profile && <Dashboard profile={profile} progress={progress} onResumeQuiz={resumeLastQuiz} onUnit={openUnit} onStory={() => { setProgress((current) => ({ ...current, lastView: "story" })); setView("story"); }} onTeacher={() => setTeacherOpen(true)} onReview={(part) => {
     const questions = part === 1 ? createTermReview([1, 2, 3], units) : [...createTermReview([4, 5], units), ...createStoryQuiz().slice(0, 10)];
     startQuiz({ id: `review-${part}`, title: `Term Review ${part}`, subtitle: part === 1 ? "Units 1–3" : "Units 4–5 + Story", questions, returnView: "dashboard" });
   }} />;
