@@ -113,7 +113,7 @@ function AppHeader({ profile, progress, onHome, onTeacher }: { profile: StudentP
         <span><strong>Mona’s English Garden</strong><small>Primary 4 • Term 1</small></span>
       </button>
       <div className="header-actions">
-        <div className="mini-stat"><span>✨</span><strong>{progress.xp}</strong><small>XP</small></div>
+        <div className="mini-stat"><span>✨</span><strong>{progress.xp + (progress.quizCheckpoint?.score ?? 0) * 10}</strong><small>XP</small></div>
         <button className="teacher-link" onClick={onTeacher}>Who Am I?</button>
         <div className="student-chip"><span>{profile.avatar}</span><div><strong>{profile.name}</strong><small>{profile.className || "Young learner"}</small></div></div>
       </div>
